@@ -1,0 +1,16 @@
+# 環境變數
+.env
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+
+# 專案特定
+uploads/
+processed/
+temp/
+*.log 

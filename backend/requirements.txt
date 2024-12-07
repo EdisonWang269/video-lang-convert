@@ -1,0 +1,14 @@
+flask==2.0.1
+flask-cors==3.0.10
+openai-whisper==20231117
+ffmpeg-python==0.2.0
+requests==2.26.0
+python-dotenv==1.0.0
+werkzeug==2.0.1
+yating-tts-sdk==0.2.2
+moviepy==1.0.3
+numpy>=1.21.0
+torch>=2.0.0
+imageio-ffmpeg>=0.4.3
+decorator>=4.0.2
+proglog>=0.1.9 
