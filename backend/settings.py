@@ -27,7 +27,7 @@ YATING_TTS = {
     'URL': os.getenv('YATING_TTS_URL'),
     'KEY': os.getenv('YATING_TTS_KEY'),
     'DEFAULT_CONFIG': {
-        'MODEL': 'tai_female_2',  # 使用台語女聲
+        'MODEL': 'tai_female_1',  # 使用台語女聲
         'SPEED': 0.75,
         'PITCH': 1.3,
         'ENERGY': 1.5,

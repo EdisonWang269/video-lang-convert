@@ -114,38 +114,70 @@ class VideoProcessor:
             logger.info(f"開始合併影片: {video_path}")
             logger.info(f"音訊段落數量: {len(segment_files)}")
             
-            # 使用絕對路徑
-            video_path = str(Path(video_path).absolute())
-            output_path = str(Path(output_path).absolute())
-            
-            # 確保所有必要的 moviepy 組件都被�入
             from moviepy.editor import (
                 VideoFileClip, 
                 AudioFileClip, 
                 AudioClip,
                 CompositeAudioClip,
-                CompositeVideoClip
+                CompositeVideoClip,
+                afx
             )
             import numpy as np
+            from pathlib import Path
             
+            # 讀取原始影片
             video = VideoFileClip(video_path)
+            
+            # 讀取並設置環境音
+            ambient_audio_path = Path(__file__).parent.parent / "tools" / "ambient_audio.wav"
+            logger.info(f"載入環境音: {ambient_audio_path}")
+            
+            if ambient_audio_path.exists():
+                # 讀取環境音檔案
+                ambient_audio = AudioFileClip(str(ambient_audio_path))
+                logger.info(f"環境音載入成功，音訊長度: {ambient_audio.duration}秒")
+                
+                # 計算需要循環的次數
+                loop_times = int(np.ceil(video.duration / ambient_audio.duration))
+                logger.info(f"需要循環 {loop_times} 次")
+                
+                # 創建循環的環境音
+                ambient_clips = []
+                for i in range(loop_times):
+                    start_time = i * ambient_audio.duration
+                    clip = ambient_audio.copy()
+                    clip = clip.set_start(start_time)
+                    
+                    # 如果是最後一個循環，可能需要裁剪
+                    if start_time + ambient_audio.duration > video.duration:
+                        clip = clip.subclip(0, video.duration - start_time)
+                    
+                    # 調整每個環境音片段的音量
+                    clip = clip.volumex(1.5)  # 提高環境音音量到 30%
+                    ambient_clips.append(clip)
+                    logger.info(f"添加第 {i+1} �環境音片段，開始時間: {start_time}秒")
+                
+                # 合併所有環境音片段
+                ambient_audio = CompositeAudioClip(ambient_clips)
+                logger.info(f"環境音合併完成，總長度: {ambient_audio.duration}秒")
+            else:
+                logger.warning(f"找不到環境音檔案: {ambient_audio_path}")
+                ambient_audio = AudioClip(
+                    lambda t: np.zeros(2),
+                    duration=video.duration
+                )
+            
             logger.info(f"影片時長: {video.duration}秒")
             
-            # 修改空白音軌的生成方式
-            def make_silence(t):
-                # 確保返回正確的音訊格式
-                return np.zeros(2)  # 直接返回雙�道的靜音幀
-            
-            base_audio = AudioClip(make_silence, duration=video.duration)
+            # 處理配音片段
             audio_clips = []
-            
             for i, segment in enumerate(segment_files):
                 try:
                     logger.info(f"處理音訊段落 {i+1}/{len(segment_files)}")
                     audio_path = str(Path(segment['path']).absolute())
                     audio_clip = AudioFileClip(audio_path)
                     
-                    # 確保音訊為雙聲道，使用更簡單的方法
+                    # 確保音訊為雙聲道
                     if audio_clip.nchannels == 1:
                         audio_array = audio_clip.to_soundarray()
                         stereo_array = np.column_stack([audio_array, audio_array])
@@ -153,6 +185,9 @@ class VideoProcessor:
                             lambda t: stereo_array[int(t * audio_clip.fps) % len(stereo_array)],
                             duration=audio_clip.duration
                         )
+                    
+                    # 調整配音音量
+                    audio_clip = audio_clip.volumex(0.6)  # 保持原音量
                     
                     duration = segment['end'] - segment['start']
                     logger.info(f"段落時長: {duration}秒")
@@ -171,8 +206,10 @@ class VideoProcessor:
                 raise Exception("沒有有效的音訊段落可以合�")
 
             logger.info("開始合併音訊...")
-            # 使用 CompositeAudioClip 時確保所有音�片段都是有效的
-            final_audio = CompositeAudioClip([base_audio] + audio_clips)
+            # 合併環境音和配音
+            all_audio_clips = [ambient_audio] + audio_clips
+            final_audio = CompositeAudioClip(all_audio_clips)
+            logger.info(f"音訊合併完成，最終音訊長度: {final_audio.duration}秒")
             
             logger.info("設置影片音訊...")
             final_video = video.set_audio(final_audio)
@@ -195,6 +232,7 @@ class VideoProcessor:
             video.close()
             final_video.close()
             final_audio.close()
+            ambient_audio.close()
             for clip in audio_clips:
                 try:
                     clip.close()
@@ -205,7 +243,7 @@ class VideoProcessor:
             return True
             
         except Exception as e:
-            logger.error(f"合併影片和音訊�發生錯誤: {str(e)}")
+            logger.error(f"合併影片和音訊發生錯誤: {str(e)}")
             # 確保資源被釋放
             try:
                 if 'video' in locals():
@@ -214,6 +252,8 @@ class VideoProcessor:
                     final_video.close()
                 if 'final_audio' in locals():
                     final_audio.close()
+                if 'ambient_audio' in locals():
+                    ambient_audio.close()
                 if 'audio_clips' in locals():
                     for clip in audio_clips:
                         try:
@@ -236,7 +276,7 @@ class VideoProcessor:
             return False
 
     def transcribe_audio(self, audio_path, video_temp_dir):
-        """使用 Whisper 進行語音���"""
+        """使用 Whisper 進行語音轉錄"""
         try:
             filename = video_temp_dir.name  # 使用料夾名稱作為檔案名稱
             self.processing_status[filename] = {
