@@ -153,9 +153,9 @@ class VideoProcessor:
                         clip = clip.subclip(0, video.duration - start_time)
                     
                     # 調整每個環境音片段的音量
-                    clip = clip.volumex(1.5)  # 提高環境音音量到 30%
+                    clip = clip.volumex(2)  # 提高環境音音量到 200%
                     ambient_clips.append(clip)
-                    logger.info(f"添加第 {i+1} �環境音片段，開始時間: {start_time}秒")
+                    logger.info(f"添加第 {i+1} 環境音片段，開始時間: {start_time}秒")
                 
                 # 合併所有環境音片段
                 ambient_audio = CompositeAudioClip(ambient_clips)
@@ -187,7 +187,7 @@ class VideoProcessor:
                         )
                     
                     # 調整配音音量
-                    audio_clip = audio_clip.volumex(0.6)  # 保持原音量
+                    audio_clip = audio_clip.volumex(0.8)  
                     
                     duration = segment['end'] - segment['start']
                     logger.info(f"段落時長: {duration}秒")
